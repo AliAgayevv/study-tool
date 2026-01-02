@@ -416,12 +416,85 @@
             margin-top: 12px;
             font-size: 0.95rem;
             line-height: 1.7;
-            white-space: pre-wrap;
         }
 
         .answer.visible {
             display: block;
             animation: fadeIn 0.2s ease;
+        }
+
+        /* Markdown Styles */
+        .answer h1, .answer h2, .answer h3, .answer h4, .answer h5, .answer h6,
+        .practice-answer h1, .practice-answer h2, .practice-answer h3, 
+        .practice-answer h4, .practice-answer h5, .practice-answer h6 {
+            font-family: 'JetBrains Mono', monospace;
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+            color: var(--accent-blue);
+        }
+
+        .answer h1, .practice-answer h1 { font-size: 1.4rem; }
+        .answer h2, .practice-answer h2 { font-size: 1.25rem; }
+        .answer h3, .practice-answer h3 { font-size: 1.1rem; }
+        .answer h4, .practice-answer h4 { font-size: 1rem; }
+
+        .answer p, .practice-answer p {
+            margin-bottom: 0.75em;
+        }
+
+        .answer ul, .answer ol,
+        .practice-answer ul, .practice-answer ol {
+            margin-left: 1.5em;
+            margin-bottom: 0.75em;
+        }
+
+        .answer li, .practice-answer li {
+            margin-bottom: 0.25em;
+        }
+
+        .answer strong, .practice-answer strong {
+            color: var(--accent-yellow);
+            font-weight: 600;
+        }
+
+        .answer em, .practice-answer em {
+            font-style: italic;
+            color: var(--accent-green);
+        }
+
+        .answer code, .practice-answer code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-primary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+
+        .answer pre, .practice-answer pre {
+            background: var(--bg-primary);
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 0.75em 0;
+        }
+
+        .answer pre code, .practice-answer pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .answer blockquote, .practice-answer blockquote {
+            border-left: 3px solid var(--accent-blue);
+            padding-left: 1em;
+            margin: 0.75em 0;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .answer hr, .practice-answer hr {
+            border: none;
+            border-top: 1px solid var(--border-color);
+            margin: 1em 0;
         }
 
         .question-actions {
@@ -548,10 +621,11 @@
             padding: 30px;
         }
 
-        .practice-question h3 {
+        .practice-question > h3 {
             font-size: 1.1rem;
             margin-bottom: 25px;
             line-height: 1.6;
+            color: var(--text-primary);
         }
 
         .practice-answer {
@@ -560,7 +634,6 @@
             border-radius: 8px;
             margin-bottom: 20px;
             display: none;
-            white-space: pre-wrap;
             line-height: 1.7;
         }
 
@@ -724,15 +797,18 @@
                 <div class="upload-section">
                     <h2>Upload Questions</h2>
                     <div class="upload-instructions">
-                        <p>Paste your questions and answers in this format:</p>
+                        <p>Paste your questions and answers in this format (Markdown supported!):</p>
                         <pre>Q: What is the meaning of life?
-A: The meaning of life varies by philosophical perspective...
-Multiple lines are supported for long answers.
+A: ### Philosophy Overview
+The meaning of life varies by perspective:
+- **Existentialism**: Create your own meaning
+- **Nihilism**: No inherent meaning
+- *Religious views*: Divine purpose
 
 Q: Who wrote "The Republic"?
-A: Plato wrote "The Republic"...</pre>
+A: **Plato** wrote "The Republic"...</pre>
                         <p style="margin-top: 12px; color: var(--text-secondary); font-size: 0.85rem;">
-                            Questions start with <code>Q:</code> and answers with <code>A:</code>. Multi-line answers are fully supported!
+                            Supports: <code>### Headers</code>, <code>**bold**</code>, <code>*italic*</code>, <code>- lists</code>, <code>`code`</code>
                         </p>
                     </div>
                     <textarea id="questions-input" placeholder="Paste your questions here..."></textarea>
@@ -839,6 +915,100 @@ A: Plato wrote "The Republic"...</pre>
     </div>
 
     <script>
+        // Simple Markdown Parser
+        function parseMarkdown(text) {
+            if (!text) return '';
+            
+            // Escape HTML first to prevent XSS
+            let html = text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            
+            // Code blocks (must be before other processing)
+            html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+            
+            // Inline code
+            html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+            
+            // Headers (process from h6 to h1 to avoid conflicts)
+            html = html.replace(/^###### (.+)$/gm, '<h6>$1</h6>');
+            html = html.replace(/^##### (.+)$/gm, '<h5>$1</h5>');
+            html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+            html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+            html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+            html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+            
+            // Bold and italic (process bold first)
+            html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+            
+            // Blockquotes
+            html = html.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+            
+            // Horizontal rule
+            html = html.replace(/^---$/gm, '<hr>');
+            
+            // Unordered lists
+            html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+            html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+            
+            // Ordered lists
+            html = html.replace(/^\d+\. (.+)$/gm, '<oli>$1</oli>');
+            html = html.replace(/(<oli>.*<\/oli>\n?)+/g, function(match) {
+                return '<ol>' + match.replace(/<\/?oli>/g, function(tag) {
+                    return tag === '<oli>' ? '<li>' : '</li>';
+                }) + '</ol>';
+            });
+            
+            // Paragraphs - wrap lines that aren't already wrapped in tags
+            const lines = html.split('\n');
+            const result = [];
+            let inParagraph = false;
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                const isTag = /^<(h[1-6]|ul|ol|li|blockquote|pre|hr)/.test(line) || 
+                              /<\/(h[1-6]|ul|ol|li|blockquote|pre)>$/.test(line);
+                
+                if (line === '') {
+                    if (inParagraph) {
+                        result.push('</p>');
+                        inParagraph = false;
+                    }
+                    result.push('');
+                } else if (isTag) {
+                    if (inParagraph) {
+                        result.push('</p>');
+                        inParagraph = false;
+                    }
+                    result.push(line);
+                } else {
+                    if (!inParagraph) {
+                        result.push('<p>' + line);
+                        inParagraph = true;
+                    } else {
+                        result.push('<br>' + line);
+                    }
+                }
+            }
+            
+            if (inParagraph) {
+                result.push('</p>');
+            }
+            
+            // Clean up extra newlines in lists
+            html = result.join('\n');
+            html = html.replace(/<\/li>\n<li>/g, '</li><li>');
+            html = html.replace(/<ul>\n/g, '<ul>');
+            html = html.replace(/\n<\/ul>/g, '</ul>');
+            html = html.replace(/<ol>\n/g, '<ol>');
+            html = html.replace(/\n<\/ol>/g, '</ol>');
+            
+            return html;
+        }
+
         // Data structure
         let appData = {
             subjects: [],
@@ -983,7 +1153,7 @@ A: Plato wrote "The Republic"...</pre>
             }
         }
 
-        // Parse questions from text - FIXED VERSION for multi-line answers
+        // Parse questions from text
         function parseQuestions(text) {
             const questions = [];
             
@@ -991,7 +1161,6 @@ A: Plato wrote "The Republic"...</pre>
             text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
             
             // Split by "Q:" at the start of a line
-            // This captures everything from one Q: to the next Q:
             const parts = text.split(/\n(?=Q:)/);
             
             parts.forEach(part => {
@@ -1094,7 +1263,7 @@ A: Plato wrote "The Republic"...</pre>
                             </div>
                             <button class="answer-toggle" onclick="toggleAnswer(this)">Show Answer</button>
                         </div>
-                        <div class="answer">${escapeHtml(q.answer)}</div>
+                        <div class="answer">${parseMarkdown(q.answer)}</div>
                         <div class="question-actions">
                             <button class="status-btn ${statusClass === 'new' ? 'new' : ''}" onclick="setStatus('${q.id}', 'new')">New</button>
                             <button class="status-btn ${statusClass === 'learning' ? 'learning' : ''}" onclick="setStatus('${q.id}', 'learning')">Learning</button>
@@ -1206,7 +1375,7 @@ A: Plato wrote "The Republic"...</pre>
             document.getElementById('progress-percent').textContent = `${Math.round((current / total) * 100)}%`;
 
             document.getElementById('practice-question-text').textContent = q.question;
-            document.getElementById('practice-answer-text').textContent = q.answer;
+            document.getElementById('practice-answer-text').innerHTML = parseMarkdown(q.answer);
             document.getElementById('practice-answer-text').classList.remove('visible');
             document.getElementById('show-answer-btn').style.display = 'block';
         }
